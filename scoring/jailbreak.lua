@@ -1,0 +1,1 @@
+return teamscores[team]
