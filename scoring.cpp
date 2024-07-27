@@ -44,14 +44,22 @@ std::map<std::string, double> score_match(const match_data& match) {
     std::filesystem::path path("scoring");
     path /= filename;
     if (!std::filesystem::is_regular_file(path)) {
-        std::cerr << "WARNING: no regular file named " + filename + " found\n";
+        std::cerr << "WARNING: no regular file named " << filename << " found\n";
         return {};
     }
     for (const auto& player : match.players) {
-        sol::state lua;
-        set_up_lua(lua, match, player);
-        auto returned_value = lua.script_file(path.string());
-        result[player.name] = returned_value.get<double>();
+        try {
+            sol::state lua;
+            set_up_lua(lua, match, player);
+            auto returned_value = lua.safe_script_file(path.string(), [](lua_State*, auto pfr) -> decltype(pfr) {
+                throw pfr.get<sol::error>();
+            });
+            result[player.name] = returned_value.get<double>();
+        } catch (const sol::error& e) {
+            std::cerr << "WARNING: error running scoring script for level " << match.level_filename << ", player " << player.name << '\n';
+            std::cerr << "INFO: " << e.what();
+            return {};
+        }
     }
     return result;
 }
