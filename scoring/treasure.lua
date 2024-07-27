@@ -1,4 +1,4 @@
-if not iswinner
+if not iswinner then
 	return gems
 end
 local best = 0
