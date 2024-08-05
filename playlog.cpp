@@ -86,7 +86,6 @@ void playlog_parser::interpret_info_line(std::string_view line) {
 
 void playlog_parser::interpret_game_alert(std::string_view line, int timestamp) {
 	const std::string_view ignored_messages[] {
-		"Game End",
 		"Server Close",
 		"DLL Unloaded",
 		"Reset Settings",
@@ -97,6 +96,11 @@ void playlog_parser::interpret_game_alert(std::string_view line, int timestamp) 
 		return;
 	if (line == "Game Start") {
 		match.start_time = timestamp;
+		return;
+	}
+	if (line == "Game End") {
+		if (stats_source == stats_type::none || stats_source == stats_type::current)
+			match.end_time = timestamp;
 		return;
 	}
 	if (consume_prefix(line, "Mode: ")) {
@@ -382,10 +386,6 @@ void playlog_parser::generate_table_header_from_leaving_players() {
 }
 
 void playlog_parser::finalize_table() {
-	if (stats_source == stats_type::current) {
-		stats_source = stats_type::none;
-		return;
-	}
 	auto original_line_count = line_count;
 	if (table_header.empty() && !leaving_players.empty())
 		generate_table_header_from_leaving_players();
