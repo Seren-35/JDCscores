@@ -155,12 +155,6 @@ void playlog_parser::interpret_player_leave(std::string_view line) {
 				line.remove_prefix(space_index + 1);
 		}
 	}
-	for (auto& other : match.players) {
-		if (same_player_name(stats.name, other.name)) {
-			merge_players(other, std::move(stats));
-			return;
-		}
-	}
 	match.players.push_back(std::move(stats));
 }
 
