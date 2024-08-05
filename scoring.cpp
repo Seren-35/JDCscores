@@ -123,7 +123,7 @@ scoring_results score(const event_data& event) {
         return lhs.total > rhs.total;
     });
     if (!results.players.empty()) {
-        double global_weight = 100.0 / results.players.front().total;
+        double global_weight = event.max_score / results.players.front().total;
         for (auto&& round : results.rounds) {
             round.weight *= global_weight;
         }

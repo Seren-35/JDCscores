@@ -39,6 +39,7 @@ struct match_data {
 
 struct event_data {
 	std::vector<match_data> matches;
+	double max_score = 100.0;
 };
 
 constexpr int duration(const match_data& match) {

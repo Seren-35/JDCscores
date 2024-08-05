@@ -1,5 +1,7 @@
+#include <charconv>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include "match.h"
 #include "output.h"
 #include "playlog.h"
@@ -12,6 +14,15 @@ int main(int argc, char* argv[]) {
 	}
 	std::ifstream file(argv[1]);
 	event_data info;
+	{
+		std::cout << "Set max score (default 100): " << std::flush;
+		std::string str;
+		std::getline(std::cin, str);
+		double value;
+		auto result = std::from_chars(str.data(), str.data() + str.size(), value);
+		if (result.ec == std::errc {})
+			info.max_score = value;
+	}
 	playlog_parser parser(info);
 	parser.parse(file);
 	default_process(info);
