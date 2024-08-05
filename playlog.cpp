@@ -151,7 +151,13 @@ void playlog_parser::interpret_player_leave(std::string_view line) {
 				line.remove_prefix(space_index + 1);
 		}
 	}
-	// TODO
+	for (auto& other : match.players) {
+		if (same_player_name(stats.name, other.name)) {
+			merge_players(other, std::move(stats));
+			return;
+		}
+	}
+	match.players.push_back(std::move(stats));
 }
 
 void playlog_parser::interpret_event_line(std::string_view line) {
@@ -303,17 +309,14 @@ void playlog_parser::interpret_line(std::string_view line) {
 	consume_prefix(line, "\r");
 	consume_suffix(line, "\r");
 	if (line.starts_with("[[") || line.starts_with("*** ")) {
-		finalize_table();
 		interpret_long_timestamp_line(line);
 		return;
 	}
 	if (line.starts_with("**")) {
-		finalize_table();
 		interpret_info_line(line);
 		return;
 	}
 	if (line.starts_with("[")) {
-		finalize_table();
 		interpret_event_line(line);
 		return;
 	}
@@ -336,16 +339,56 @@ void playlog_parser::interpret_line(std::string_view line) {
 	report_warning("unrecognized line type");
 }
 
-void playlog_parser::finalize_table() {
-	if (stats_source == stats_type::none) {
-		leaving_players.clear();
-		return;
+void playlog_parser::generate_table_header_from_leaving_players() {
+	std::cerr << "INFO (line " << leaving_players.front().number << "): match has leaving players but no game stats\n";
+	std::cerr << "INFO: this may lead to unexpected results if all player names contain colons\n";
+	std::vector<std::string_view> result;
+	for (const auto& leaving_player : leaving_players) {
+		std::vector<std::string_view> header;
+		const auto& line = leaving_player.line;
+		for (auto colon = line.find(':'); colon != std::string::npos; colon = line.find(':', colon + 1)) {
+			auto start = line.rfind(' ', colon) + 1;
+			header.emplace_back(line.begin() + start, line.begin() + colon);
+		}
+		if (result.empty()) {
+			result = std::move(header);
+		} else {
+			std::vector<std::string_view> intersection;
+			auto first = result.begin();
+			auto second = header.begin();
+			while (first != result.end() && second != header.end()) {
+				if (*first == *second) {
+					intersection.push_back(*first);
+					++first;
+					++second;
+				} else {
+					auto first_remaining = std::distance(first, result.end());
+					auto second_remaining = std::distance(second, header.end());
+					if (first_remaining >= second_remaining)
+						++first;
+					if (first_remaining <= second_remaining)
+						++second;
+				}
+			}
+			result = std::move(intersection);
+		}
 	}
+	auto address = std::ranges::find(result, "Address");
+	if (address != result.end())
+		*address = "IP Address";
+	for (const auto& column_name : result) {
+		table_header.push_back(column_info {.header = std::string(column_name)});
+	}
+}
+
+void playlog_parser::finalize_table() {
 	if (stats_source == stats_type::current) {
 		stats_source = stats_type::none;
 		return;
 	}
 	auto original_line_count = line_count;
+	if (table_header.empty() && !leaving_players.empty())
+		generate_table_header_from_leaving_players();
 	for (const auto& leaving_player : leaving_players) {
 		line_count = leaving_player.number;
 		interpret_player_leave(leaving_player.line);
@@ -358,7 +401,8 @@ void playlog_parser::finalize_table() {
 	match.stats_source = stats_source;
 	stats_source = stats_type::none;
 	auto end_time = match.end_time;
-	result.matches.push_back(std::move(match));
+	if (!match.players.empty())
+		result.matches.push_back(std::move(match));
 	match = {};
 	match.start_time = end_time;
 }

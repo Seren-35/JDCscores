@@ -28,6 +28,7 @@ private:
 	void interpret_table_row_line(std::string_view line);
 	void interpret_team_score_line(std::string_view line, std::size_t name_length);
 	void interpret_line(std::string_view line);
+	void generate_table_header_from_leaving_players();
 	void finalize_table();
 	void end_level();
 	void clean_up();

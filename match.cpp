@@ -17,6 +17,27 @@ bool players_qualify_to_auto_merge(const player_stats& first, const player_stats
 	return sets_overlap(first.ips, second.ips) && same_player_name(first.name, second.name);
 }
 
+void merge_players(player_stats& main_player, player_stats&& secondary_player) {
+	if (main_player.team != secondary_player.team) {
+		if (main_player.team.empty())
+			main_player.team = std::move(secondary_player.team);
+		else if (!secondary_player.team.empty())
+			std::cerr << "WARNING: merged players have different teams - " << main_player.team << " and " << secondary_player.team << '\n';
+	}
+	if (!main_player.renamed && (secondary_player.renamed || is_string_with_number_suffix(main_player.name, secondary_player.name))) {
+		main_player.name = std::move(secondary_player.name);
+		main_player.renamed = secondary_player.renamed;
+	}
+	main_player.ips.merge(secondary_player.ips);
+	for (auto&& [key, value] : main_player.stats) {
+		auto other = secondary_player.stats.find(key)->second;
+		if (!value.ordinal)
+			value.value += other.value;
+		else if (other.value != 0 && (value.value == 0 || other.value < value.value))
+			value.value = other.value;
+	}
+}
+
 void rename_player(match_data& match, std::size_t index, std::string_view name) {
 	if (index >= match.players.size()) {
 		std::cerr << "ERROR: player index out of range\n";
@@ -36,26 +57,7 @@ void merge_players(match_data& match, std::size_t first, std::size_t second) {
 		std::cerr << "ERROR: player index out of range\n";
 		return;
 	}
-	auto& main_player = match.players[first];
-	auto& secondary_player = match.players[second];
-	if (main_player.team != secondary_player.team) {
-		if (main_player.team.empty())
-			main_player.team = std::move(secondary_player.team);
-		else if (!secondary_player.team.empty())
-			std::cerr << "WARNING: merged players have different teams - " << main_player.team << " and " << secondary_player.team << '\n';
-	}
-	if (!main_player.renamed && (secondary_player.renamed || is_string_with_number_suffix(main_player.name, secondary_player.name))) {
-		main_player.name = std::move(secondary_player.name);
-		main_player.renamed = secondary_player.renamed;
-	}
-	main_player.ips.merge(secondary_player.ips);
-	for (auto&& [key, value] : main_player.stats) {
-		auto other = secondary_player.stats.find(key)->second;
-		if (!value.ordinal)
-			value.value += other.value;
-		else if (other.value != 0 && (value.value == 0 || other.value < value.value))
-			value.value = other.value;
-	}
+	merge_players(match.players[first], std::move(match.players[second]));
 	match.players.erase(match.players.begin() + second);
 }
 

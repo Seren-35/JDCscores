@@ -51,6 +51,7 @@ constexpr int duration(const match_data& match) {
 bool is_string_with_number_suffix(std::string_view first, std::string_view second);
 bool same_player_name(std::string_view first, std::string_view second);
 bool players_qualify_to_auto_merge(const player_stats& first, const player_stats& second);
+void merge_players(player_stats& main_player, player_stats&& secondary_player);
 
 void rename_player(match_data& match, std::size_t index, std::string_view name);
 void merge_players(match_data& match, std::size_t first, std::size_t second);
