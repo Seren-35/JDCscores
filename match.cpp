@@ -11,10 +11,18 @@ bool same_player_name(std::string_view first, std::string_view second) {
 	return is_string_with_number_suffix(first, second) || is_string_with_number_suffix(second, first);
 }
 
+bool players_qualify_to_auto_rename(const player_stats& first, const player_stats& second) {
+	return sets_overlap(first.ips, second.ips) && same_player_name(first.name, second.name);
+}
+
 bool players_qualify_to_auto_merge(const player_stats& first, const player_stats& second) {
 	if (!first.team.empty() && !second.team.empty() && first.team != second.team)
 		return false;
-	return sets_overlap(first.ips, second.ips) && same_player_name(first.name, second.name);
+	return players_qualify_to_auto_rename(first, second);
+}
+
+bool prefers_secondary_name(const player_stats& first, const player_stats& second) {
+	return !first.renamed && (second.renamed || is_string_with_number_suffix(first.name, second.name));
 }
 
 void merge_players(player_stats& main_player, player_stats&& secondary_player) {
@@ -24,7 +32,7 @@ void merge_players(player_stats& main_player, player_stats&& secondary_player) {
 		else if (!secondary_player.team.empty())
 			std::cerr << "WARNING: merged players have different teams - " << main_player.team << " and " << secondary_player.team << '\n';
 	}
-	if (!main_player.renamed && (secondary_player.renamed || is_string_with_number_suffix(main_player.name, secondary_player.name))) {
+	if (prefers_secondary_name(main_player, secondary_player)) {
 		main_player.name = std::move(secondary_player.name);
 		main_player.renamed = secondary_player.renamed;
 	}
@@ -92,6 +100,18 @@ void default_process(event_data& event) {
 					j--;
 				}
 			}
+		}
+	}
+	std::vector<player_stats*> all_players;
+	for (auto&& match : event.matches) {
+		for (auto&& player : match.players) {
+			all_players.push_back(&player);
+		}
+	}
+	for (const auto& player : all_players) {
+		for (const auto& other : all_players) {
+			if (prefers_secondary_name(*player, *other) && players_qualify_to_auto_rename(*player, *other))
+				player->name = other->name;
 		}
 	}
 }
