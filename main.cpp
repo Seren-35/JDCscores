@@ -13,6 +13,10 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 	std::ifstream file(argv[1]);
+	if (!file) {
+		std::cerr << "ERROR: couldn't open file " << argv[1] << '\n';
+		return 1;
+	}
 	event_data info;
 	{
 		std::cout << "Set max score (default 100): " << std::flush;
